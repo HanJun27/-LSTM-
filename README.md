@@ -1,7 +1,5 @@
-**下面就是你这个项目可以直接使用的超专业 `README.md`**  
-复制到项目根目录新建 `README.md` 文件，粘贴保存即可。支持 Markdown 渲染，GitHub / Gitee / GitLab / 语雀 / 毕业设计文档都完美显示。
 
-```markdown
+
 # 基于 LSTM 的期货价格智能预测系统（本地部署版）
 
 **实时行情 + AI 预测 + 一键操作 + 美观大方**  
@@ -10,6 +8,7 @@
 ![演示截图](https://img.shields.io/badge/效果-专业级-brightgreen) ![Python](https://img.shields.io/badge/Python-3.9%2B-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-最新-orange) ![AKShare](https://img.shields.io/badge/AKShare-实时数据-green)
 
 ![界面预览](docs/preview.jpg)
+![alt text](preview.jpg)
 > （实际效果比图片更炫！左侧实时行情卡片，右侧 LSTM 预测曲线）
 
 ## 功能亮点
@@ -43,9 +42,8 @@
 
 ### 1. 克隆/下载项目
 ```bash
-git clone https://github.com/yourname/futures-lstm-predictor.git
+git clone https://github.com/HanJun27/-LSTM-
 cd futures-lstm-predictor
-```
 
 ### 2. 安装依赖（推荐使用虚拟环境）
 ```bash
