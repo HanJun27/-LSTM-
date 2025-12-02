@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+torch
+pandas
+numpy
+akshare
+scikit-learn
+jinja2
+matplotlib

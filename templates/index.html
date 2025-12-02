@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>专业级 · LSTM 期货智能预测系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 2rem 0; }
+        .main-container { background: rgba(255,255,255,0.97); border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); }
+        .card-hover { transition: all 0.3s ease; cursor: pointer; }
+        .card-hover:hover { transform: translateY(-8px) scale(1.02); box-shadow: 0 25px 50px rgba(0,0,0,0.25) !important; }
+        .symbol-card { border: none; border-radius: 16px; overflow: hidden; position: relative; height: 100%; }
+        
+        /* 修复：完整定义所有背景类 */
+        .metal-bg { background: linear-gradient(135deg, #ffd700, #ffed4e); color: #000; }
+        .energy-bg { background: linear-gradient(135deg, #333333, #000000); color: white; }
+        .agri-bg { background: linear-gradient(135deg, #56ab2f, #a8e6cf); color: #000; }
+        .chem-bg { background: linear-gradient(135deg, #6a11cb, #2575fc); color: white; }
+        
+        .price-tag { font-size: 1.4rem; font-weight: bold; }
+        .change-up { color: #dc3545; }  /* 涨红 */
+        .change-down { color: #28a745; } /* 跌绿 */
+        .badge-volume { font-size: 0.8rem; opacity: 0.9; }
+        .icon-3d { font-size: 2.5rem; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+        .price-chart-card { border-radius: 20px; overflow: hidden; }
+    </style>
+</head>
+<body>
+<div class="container py-4">
+    <div class="main-container shadow-lg">
+        <div class="bg-primary text-white p-5 text-center">
+            <h1 class="mb-2"><i class="bi bi-cpu-fill me-3"></i>LSTM 期货智能预测系统</h1>
+            <p class="mb-0 opacity-90">实时行情由 AkShare 提供 · AI预测由 PyTorch LSTM 驱动</p>
+        </div>
+
+        <div class="row g-0">
+            <!-- 左侧：热门品种卡片（背景已修复） -->
+            <div class="col-lg-4 bg-light p-4" style="max-height: 90vh; overflow-y: auto;">
+                <h4 class="text-center mb-4 text-primary"><i class="bi bi-fire"></i> 热门品种 · 实时行情 + 一键AI预测</h4>
+                <div class="row g-3">
+                    {% macro variety_card(name, code, icon, bg_class) %}
+                    <div class="col-6">
+                        <div class="symbol-card card-hover shadow {{ bg_class }} text-center p-3" onclick="quickPredict('{{ code }}')">
+                            <div class="icon-3d mb-2">{{ icon }}</div>
+                            <h6 class="mb-2">{{ name }}</h6>
+                            <code class="bg-light px-2 py-1 rounded fs-6">{{ code }}</code>
+
+                            {% if data and data.symbol == code %}
+                            <div class="mt-3">
+                                <div class="price-tag">{{ "%.2f"|format(data.current_price) }}</div>
+                                <div class="{% if data.change >= 0 %}change-up fw-bold{% else %}change-down fw-bold{% endif %} fs-6">
+                                    {% if data.change >= 0 %}↑{% else %}↓{% endif %}{{ "%.2f"|format(data.change|abs) }} 
+                                    ({{ "%.2f"|format(data.change_pct) }}%)
+                                </div>
+                                <div class="badge badge-volume bg-light text-dark mt-1">
+                                    量 {{ (data.volume // 10000)|int if data.volume else 0 }}万 · 持 {{ (data.open_interest // 10000)|int if data.open_interest else 0 }}万
+                                </div>
+                            </div>
+                            <div class="mt-2 text-warning small fw-bold">点击刷新预测</div>
+                            {% else %}
+                            <div class="mt-3 opacity-75 small">点击获取行情 & AI预测</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endmacro %}
+
+                    {{ variety_card('黄金', 'AU0', '🪙', 'metal-bg') }}
+                    {{ variety_card('白银', 'AG0', '🥈', 'metal-bg') }}
+                    {{ variety_card('沪铜', 'CU0', '🛠️', 'metal-bg') }}
+                    {{ variety_card('螺纹钢', 'RB0', '🔩', 'metal-bg') }}
+                    {{ variety_card('原油', 'SC0', '🛢️', 'energy-bg') }}
+                    {{ variety_card('沥青', 'BU0', '🛣️', 'energy-bg') }}
+                    {{ variety_card('豆粕', 'M0', '🌱', 'agri-bg') }}
+                    {{ variety_card('PTA', 'TA0', '🧪', 'chem-bg') }}
+                    {{ variety_card('甲醇', 'MA0', '⚗️', 'chem-bg') }}
+                    {{ variety_card('沪镍', 'NI0', '🔩', 'metal-bg') }}
+                </div>
+            </div>
+
+            <!-- 右侧：主操作区 -->
+            <div class="col-lg-8 p-5">
+                {% if not data and not error %}
+                <div class="alert alert-info mb-4">
+                    <i class="bi bi-info-circle me-2"></i><strong>提示：</strong>点击左侧品种一键预测，首次需训练模型（15~40秒）。
+                </div>
+                {% endif %}
+
+                {% if error %}
+                <div class="alert alert-danger mb-4">
+                    <i class="bi bi-exclamation-triangle me-2"></i>{{ error }}
+                </div>
+                {% endif %}
+
+                <form method="post" id="predictForm" class="mb-4">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-primary text-white">
+                            <i class="bi bi-search"></i> 品种代码
+                        </span>
+                        <input type="text" class="form-control" name="symbol" id="symbolInput" 
+                               placeholder="如 RB0、AU0" value="{{ symbol or '' }}" required>
+                        <button type="submit" class="btn btn-success px-5" id="submitBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner"></span>
+                            <span id="btnText">AI预测</span>
+                        </button>
+                    </div>
+                </form>
+
+                {% if data %}
+                <div class="price-chart-card shadow-lg">
+                    <div class="bg-success text-white p-4">
+                        <h3 class="mb-0"><i class="bi bi-graph-up me-2"></i>{{ data.symbol }} · LSTM 30天价格预测</h3>
+                        <small class="opacity-75">红色虚线为 AI 预测，蓝色为历史</small>
+                    </div>
+                    <div class="p-4">
+                        <canvas id="priceChart" height="140"></canvas>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 脚本 -->
+<script>
+function quickPredict(code) {
+    document.getElementById('symbolInput').value = code;
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('btnText').textContent = '预测 ' + code + '...';
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('predictForm').submit();
+}
+
+document.getElementById('predictForm').addEventListener('submit', function() {
+    if (!document.getElementById('loadingSpinner').classList.contains('d-none')) return;
+    document.getElementById('loadingSpinner').classList.remove('d-none');
+    document.getElementById('btnText').textContent = 'AI 分析中...';
+    document.getElementById('submitBtn').disabled = true;
+});
+</script>
+
+{% if data %}
+<script>
+const ctx = document.getElementById('priceChart').getContext('2d');
+new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [...{{ data.hist_dates|tojson }}, ...{{ data.future_dates|tojson }}],
+        datasets: [
+            {
+                label: '历史价格',
+                data: {{ data.hist_prices|tojson }},
+                borderColor: '#0d6efd',
+                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 3
+            },
+            {
+                label: 'LSTM 预测（30天）',
+                data: Array({{ data.hist_prices|length }}).fill(null).concat({{ data.future_prices|tojson }}),
+                borderColor: '#dc3545',
+                borderWidth: 4,
+                borderDash: [10, 5],
+                pointRadius: 0,
+                tension: 0.1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { position: 'top', labels: { font: { size: 16 } } } },
+        scales: { 
+            y: { beginAtZero: false, grid: { color: 'rgba(0,0,0,0.05)' } },
+            x: { grid: { display: false } }
+        }
+    }
+});
+</script>
+{% endif %}
+</body>
+</html>
